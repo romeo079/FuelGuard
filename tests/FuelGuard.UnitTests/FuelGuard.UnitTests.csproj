@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\FuelGuard.Domain\FuelGuard.Domain.csproj" />
     <ProjectReference Include="..\..\src\FuelGuard.Application\FuelGuard.Application.csproj" />
     <ProjectReference Include="..\..\src\FuelGuard.Hardware.Simulator\FuelGuard.Hardware.Simulator.csproj" />
+    <ProjectReference Include="..\..\src\FuelGuard.Infrastructure\FuelGuard.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
