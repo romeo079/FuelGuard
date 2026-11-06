@@ -1,0 +1,16 @@
+**/bin/
+**/obj/
+.vs/
+**/.vs/
+*.user
+*.suo
+*.log
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+secrets.json
+coverage/
+TestResults/
+*.userosscache
+*.sln.docstates

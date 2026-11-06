@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="QRCoder" />
+    <ProjectReference Include="..\FuelGuard.Domain\FuelGuard.Domain.csproj" />
+    <ProjectReference Include="..\FuelGuard.Application\FuelGuard.Application.csproj" />
+    <ProjectReference Include="..\FuelGuard.Contracts\FuelGuard.Contracts.csproj" />
+    <ProjectReference Include="..\FuelGuard.Hardware.Abstractions\FuelGuard.Hardware.Abstractions.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FuelGuard.Application\FuelGuard.Application.csproj" />
+    <ProjectReference Include="..\FuelGuard.Infrastructure\FuelGuard.Infrastructure.csproj" />
+    <ProjectReference Include="..\FuelGuard.Contracts\FuelGuard.Contracts.csproj" />
+    <ProjectReference Include="..\FuelGuard.Hardware.Simulator\FuelGuard.Hardware.Simulator.csproj" />
+  </ItemGroup>
+
+</Project>
