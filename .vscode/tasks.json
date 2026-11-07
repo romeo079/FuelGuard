@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run FuelGuard AdminWeb (Development)",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"run",
+				"--project",
+				"src\\FuelGuard.AdminWeb\\FuelGuard.AdminWeb.csproj",
+				"--launch-profile",
+				"http",
+				"--urls",
+				"http://localhost:5248"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

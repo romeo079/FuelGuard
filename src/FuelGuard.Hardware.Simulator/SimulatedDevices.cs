@@ -28,6 +28,7 @@ public sealed class SimulatedExitScannerService : IExitScannerService
     private readonly ConcurrentQueue<string> _tokens = new();
     public bool IsOnline { get; set; }
     public void EnqueueToken(string token) => _tokens.Enqueue(token);
+    public string? SimulateScan(string token) => IsOnline && !string.IsNullOrWhiteSpace(token) ? token : null;
 
     public Task<string?> ReadNextTokenAsync(CancellationToken cancellationToken)
     {

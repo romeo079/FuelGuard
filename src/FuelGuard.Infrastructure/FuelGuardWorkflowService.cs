@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using QRCoder;
 
 namespace FuelGuard.Infrastructure;
@@ -85,12 +86,17 @@ public sealed class FuelGuardWorkflowService(
     }
 
     public async Task<PaymentDto> SimulatePaymentAsync(string userId, Guid stationId, Guid transactionId, bool succeed, decimal finalAmount, decimal finalLitres, CancellationToken cancellationToken)
+        => await SimulatePaymentAsync(userId, stationId, transactionId, succeed ? PaymentStatus.Paid : PaymentStatus.Failed, finalAmount, finalLitres, cancellationToken);
+
+    public async Task<PaymentDto> SimulatePaymentAsync(string userId, Guid stationId, Guid transactionId, PaymentStatus outcome, decimal finalAmount, decimal finalLitres, CancellationToken cancellationToken)
     {
         if (!environment.IsDevelopment())
             throw new InvalidOperationException("The simulated POS is available only in the Development environment.");
         await EnsureStationAccess(userId, stationId, cancellationToken);
         if (finalAmount <= 0 || finalLitres <= 0)
             throw new ArgumentOutOfRangeException(nameof(finalAmount), "The simulator requires explicit positive POS final amount and litres.");
+        if (outcome is not (PaymentStatus.Paid or PaymentStatus.Failed or PaymentStatus.Pending or PaymentStatus.Unknown))
+            throw new ArgumentOutOfRangeException(nameof(outcome), "The POS simulator supports Paid, Failed, Pending, and Unknown outcomes.");
 
         var transaction = await db.FuelTransactions.Include(x => x.Payments)
             .SingleOrDefaultAsync(x => x.Id == transactionId && x.StationId == stationId, cancellationToken)
@@ -106,7 +112,7 @@ public sealed class FuelGuardWorkflowService(
 
         if (pos is not ISimulatedPOSIntegrationService simulatedPos)
             throw new InvalidOperationException("No simulated POS adapter is registered in this environment.");
-        var confirmation = await simulatedPos.SimulatePaymentAsync(transaction.PosTransactionReference!, succeed, finalAmount, finalLitres, cancellationToken);
+        var confirmation = await simulatedPos.SimulatePaymentAsync(transaction.PosTransactionReference!, outcome, finalAmount, finalLitres, cancellationToken);
         return await ApplyPaymentConfirmationAsync(userId, transaction, confirmation, cancellationToken);
     }
 
@@ -183,7 +189,7 @@ public sealed class FuelGuardWorkflowService(
         if (transaction.Status != FuelTransactionStatus.Completed || transaction.PaymentStatus != PaymentStatus.Paid || transaction.FinalAmount is null || transaction.FinalLitres is null)
             throw new InvalidOperationException("Exit authorization requires a completed transaction and verified POS-paid final amount and litres.");
         var paidEvidence = transaction.Payments.OrderByDescending(x => x.CreatedAtUtc).FirstOrDefault(x => x.Status == PaymentStatus.Paid);
-        if (paidEvidence is null || (paidEvidence.IsSimulation && !environment.IsDevelopment()))
+        if (paidEvidence is null || paidEvidence.IsSimulation)
             throw new InvalidOperationException("No eligible independently verified payment evidence exists.");
         var exit = await db.StationExits.SingleOrDefaultAsync(x => x.Id == request.StationExitId && x.StationId == stationId && x.IsEnabled, cancellationToken)
             ?? throw new KeyNotFoundException("The selected exit is not enabled at this station.");
@@ -377,7 +383,7 @@ public sealed class FuelGuardWorkflowService(
         return new DashboardSummaryDto(
             await today.CountAsync(cancellationToken),
             await today.CountAsync(x => x.PaymentStatus == PaymentStatus.Paid, cancellationToken),
-            await today.CountAsync(x => x.PaymentStatus == PaymentStatus.Pending, cancellationToken),
+            await today.CountAsync(x => x.PaymentStatus == PaymentStatus.Pending || x.PaymentStatus == PaymentStatus.Unknown, cancellationToken),
             await today.CountAsync(x => x.PaymentStatus == PaymentStatus.Failed, cancellationToken),
             await db.ExitAuthorisations.CountAsync(x => x.StationId == stationId && x.ConsumedAtUtc == null && x.RevokedAtUtc == null && x.ExpiresAtUtc > DateTimeOffset.UtcNow, cancellationToken),
             await db.ExitEvents.CountAsync(x => x.StationId == stationId && x.Completed, cancellationToken),

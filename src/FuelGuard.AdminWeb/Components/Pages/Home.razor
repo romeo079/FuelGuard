@@ -1,7 +1,543 @@
-﻿@page "/"
+@page "/"
+@using System.ComponentModel.DataAnnotations
+@using FuelGuard.Contracts
+@using FuelGuard.Domain
+@using FuelGuard.Hardware.Simulator
+@inject IFuelGuardSimulatorDemoService Simulator
+@inject IWebHostEnvironment Environment
 
-<PageTitle>Home</PageTitle>
+<PageTitle>FuelGuard Simulator Demo</PageTitle>
 
-<h1>Hello, world!</h1>
+@if (!Environment.IsDevelopment())
+{
+    <section class="notice-card">
+        <p class="eyebrow">SIMULATOR DISABLED</p>
+        <h1>Development environment required</h1>
+        <p>All Phase 1 payment, QR, scanner, and safety operations are development-only simulations.</p>
+    </section>
+}
+else if (_user is null)
+{
+    <section class="login-shell">
+        <div class="login-brand">
+            <p class="eyebrow">ROMVEX FUELGUARD · PHASE 1</p>
+            <h1>FuelGuard Simulator</h1>
+            <p>Demonstrate the end-to-end fuel transaction and exit workflow using isolated simulators.</p>
+            <span class="simulation-banner">SIMULATION ONLY · NO REAL BANK, POS, GATE OR TYRE-SPIKE CONNECTION</span>
+        </div>
+        <EditForm Model="_login" OnValidSubmit="SignIn" class="login-card">
+            <DataAnnotationsValidator />
+            <h2>Sign in to the demo</h2>
+            <label for="login-email">Demo email</label>
+            <InputText id="login-email" class="form-control" @bind-Value="_login.Email" autocomplete="username" />
+            <ValidationMessage For="() => _login.Email" />
+            <label for="login-password">Password</label>
+            <InputText id="login-password" class="form-control" type="password" @bind-Value="_login.Password" autocomplete="current-password" />
+            <ValidationMessage For="() => _login.Password" />
+            @if (!string.IsNullOrWhiteSpace(_loginMessage))
+            {
+                <p class="form-message" role="alert">@_loginMessage</p>
+            }
+            <button class="btn btn-primary w-100" type="submit">Sign in</button>
+            <details class="demo-credentials">
+                <summary>Development demo accounts</summary>
+                <p>Administrator: <code>admin@fuelguard.local</code> / <code>FuelGuardAdmin!2026</code></p>
+                <p>Attendant: <code>attendant@fuelguard.local</code> / <code>FuelGuardAttendant!2026</code></p>
+            </details>
+        </EditForm>
+    </section>
+}
+else if (_dashboard is null)
+{
+    <p role="status">Loading simulator dashboard…</p>
+}
+else
+{
+    <header class="dashboard-header" id="overview">
+        <div>
+            <p class="eyebrow">ROMVEX FUELGUARD · DEVELOPMENT DEMO</p>
+            <h1>Simulator dashboard</h1>
+            <p>Welcome, @_user.DisplayName <span class="role-pill">@_user.Role</span></p>
+        </div>
+        <div class="header-actions">
+            <span class="simulation-banner">SIMULATION ONLY · NOT A REAL PAYMENT</span>
+            <button class="btn btn-outline-secondary" @onclick="SignOut">Sign out</button>
+        </div>
+    </header>
 
-Welcome to your new app.
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <div class="notice-card action-message" role="status">@_message</div>
+    }
+
+    <section class="metric-grid" aria-label="Live simulator metrics">
+        <article class="metric-card"><span>Total transactions</span><strong>@_dashboard.TotalTransactions</strong><small>In this demo session</small></article>
+        <article class="metric-card metric-paid"><span>Paid transactions</span><strong>@_dashboard.PaidTransactions</strong><small>Confirmed by POS simulator</small></article>
+        <article class="metric-card metric-failed"><span>Failed payments</span><strong>@_dashboard.FailedPayments</strong><small>Never eligible for an exit QR</small></article>
+        <article class="metric-card metric-pending"><span>Pending / unknown</span><strong>@_dashboard.PendingPayments</strong><small>Not confirmed as paid</small></article>
+        <article class="metric-card"><span>Active exit authorisations</span><strong>@_dashboard.ActiveExitAuthorizations</strong><small>Unexpired, unused, not revoked</small></article>
+        <article class="metric-card"><span>Completed simulated exits</span><strong>@_dashboard.CompletedSimulatedExits</strong><small>No physical gate movement</small></article>
+    </section>
+
+    <section class="panel-grid">
+        <article class="panel" id="new-transaction">
+            <div class="panel-heading">
+                <div><p class="eyebrow">01 · FUEL SALE</p><h2>Create transaction</h2></div>
+                <span class="status-chip">Station FG-DEMO</span>
+            </div>
+            <EditForm Model="_transaction" OnValidSubmit="CreateTransaction">
+                <DataAnnotationsValidator />
+                <div class="form-grid">
+                    <label>Pump
+                        <InputSelect class="form-select" @bind-Value="_transaction.PumpId">
+                            @foreach (var pump in FuelGuardSimulatorDemoService.Pumps)
+                            {
+                                <option value="@pump.Id">Pump @pump.Number</option>
+                            }
+                        </InputSelect>
+                    </label>
+                    <label>Fuel
+                        <InputSelect class="form-select" @bind-Value="_transaction.FuelType">
+                            <option>Unleaded 95</option>
+                            <option>Diesel 50</option>
+                        </InputSelect>
+                    </label>
+                    <label>Transaction type
+                        <InputSelect class="form-select" @bind-Value="_transaction.Type">
+                            <option value="@FuelTransactionType.FixedAmount">Fixed amount</option>
+                            <option value="@FuelTransactionType.FixedLitres">Fixed litres</option>
+                            <option value="@FuelTransactionType.FillToFull">Fill to full</option>
+                        </InputSelect>
+                    </label>
+                    @if (_transaction.Type == FuelTransactionType.FixedAmount)
+                    {
+                        <label>Requested amount (ZAR)
+                            <InputNumber class="form-control" @bind-Value="_transaction.RequestedAmount" min="0.01" step="0.01" />
+                        </label>
+                    }
+                    else if (_transaction.Type == FuelTransactionType.FixedLitres)
+                    {
+                        <label>Requested litres
+                            <InputNumber class="form-control" @bind-Value="_transaction.RequestedLitres" min="0.001" step="0.001" />
+                        </label>
+                    }
+                    <label>Vehicle registration (optional)
+                        <InputText class="form-control" @bind-Value="_transaction.VehicleRegistration" maxlength="16" />
+                    </label>
+                </div>
+                <button class="btn btn-primary" type="submit">Create pending transaction</button>
+            </EditForm>
+        </article>
+
+        <article class="panel">
+            <div class="panel-heading">
+                <div><p class="eyebrow">02 · POS RESULT</p><h2>Submit to POS simulator</h2></div>
+                <span class="status-chip">SIMULATION ONLY</span>
+            </div>
+            @if (SelectedTransaction is null)
+            {
+                <p>Create or select a transaction to continue.</p>
+            }
+            else
+            {
+                <p><strong>@SelectedTransaction.Reference</strong> · @SelectedTransaction.Type · @SelectedTransaction.PaymentStatus</p>
+                <EditForm Model="_payment" OnValidSubmit="SubmitPayment">
+                    <DataAnnotationsValidator />
+                    <div class="form-grid">
+                        <label>Simulated outcome
+                            <InputSelect class="form-select" @bind-Value="_payment.Outcome">
+                                <option value="@PaymentStatus.Paid">Successful / paid</option>
+                                <option value="@PaymentStatus.Failed">Failed</option>
+                                <option value="@PaymentStatus.Pending">Pending</option>
+                                <option value="@PaymentStatus.Unknown">Unknown status</option>
+                            </InputSelect>
+                        </label>
+                        <label>Final amount (ZAR)
+                            <InputNumber class="form-control" @bind-Value="_payment.FinalAmount" min="0.01" step="0.01" />
+                        </label>
+                        <label>Final litres
+                            <InputNumber class="form-control" @bind-Value="_payment.FinalLitres" min="0.001" step="0.001" />
+                        </label>
+                    </div>
+                    <button class="btn btn-primary" type="submit">Send simulated POS result</button>
+                    <p class="helper-text">This is a local simulator response, never a bank settlement or real POS confirmation.</p>
+                </EditForm>
+            }
+        </article>
+    </section>
+
+    <section class="panel-grid">
+        <article class="panel" id="exit-simulator">
+            <div class="panel-heading">
+                <div><p class="eyebrow">03 · EXIT AUTHORISATION</p><h2>QR and scanner simulator</h2></div>
+                <span class="status-chip">No physical actuation</span>
+            </div>
+            @if (SelectedTransaction is { PaymentStatus: PaymentStatus.Paid })
+            {
+                <div class="form-grid">
+                    <label>Exit
+                        <InputSelect class="form-select" @bind-Value="_exitId">
+                            @foreach (var exit in FuelGuardSimulatorDemoService.Exits)
+                            {
+                                <option value="@exit.Id">@exit.Name</option>
+                            }
+                        </InputSelect>
+                    </label>
+                    <label>QR expiry (minutes)
+                        <InputNumber class="form-control" @bind-Value="_expiryMinutes" min="1" max="120" />
+                    </label>
+                </div>
+                <button class="btn btn-primary" @onclick="GenerateQr">Generate exit QR</button>
+            }
+            else
+            {
+                <p>An exit QR is available only after the POS simulator records a confirmed paid outcome.</p>
+            }
+
+            @if (_authorization is not null)
+            {
+                <div class="qr-card">
+                    <div>
+                        <strong>SIMULATION ONLY</strong>
+                        <p>Expires @_authorization.ExpiresAtUtc.ToLocalTime().ToString("g")</p>
+                        <p>Vehicle: @(_authorization.VehicleRegistration.Length == 0 ? "Not recorded" : _authorization.VehicleRegistration)</p>
+                        <code class="token-text">@_authorization.Token</code>
+                        @if (_dashboard.RecentActivity.Any(x => x.EntityId == _authorization.Id && x.Action == "ExitAuthorization.Revoked"))
+                        {
+                            <p class="form-message">This authorization has been revoked.</p>
+                        }
+                        else if (_dashboard.ExitEvents.Any(x => x.AuthorizationId == _authorization.Id && x.Completed))
+                        {
+                            <p class="success-message">This authorization has already been consumed.</p>
+                        }
+                        else
+                        {
+                            <button class="btn btn-outline-danger btn-sm" @onclick="RevokeQr">Revoke QR</button>
+                        }
+                    </div>
+                    <img alt="Simulator exit authorization QR code" src="data:image/png;base64,@_authorization.QrCodePngBase64" />
+                </div>
+            }
+
+            <div class="scanner-box">
+                <label for="scanner-token">Scanner input (paste a simulator QR token)</label>
+                <InputText id="scanner-token" class="form-control" @bind-Value="_scanToken" />
+                <button class="btn btn-outline-primary" @onclick="ScanQr">Scan with simulator</button>
+                <button class="btn btn-outline-secondary" @onclick="ToggleScanner">
+                    Scanner: @(_dashboard.Hardware.First(x => x.Code == "SIM-QR-SCANNER").Status) · click to toggle
+                </button>
+                <p class="helper-text">The scanner checks the token, payment evidence, expiry, revocation, single-use status, and safety interlock.</p>
+            </div>
+        </article>
+
+        <article class="panel safety-panel">
+            <div class="panel-heading">
+                <div><p class="eyebrow">04 · INDEPENDENT INTERLOCK DEMO</p><h2>Safety controller</h2></div>
+                <span class="safety-state">@_dashboard.SafetyState</span>
+            </div>
+            <label>Simulated controller state
+                <InputSelect TValue="SimulatorSafetyState" class="form-select" Value="@_safetyState" ValueChanged="@(EventCallback.Factory.Create<SimulatorSafetyState>(this, ChangeSafetyState))" ValueExpression="() => _safetyState">
+                    @foreach (var state in Enum.GetValues<SimulatorSafetyState>())
+                    {
+                        <option value="@state">@state</option>
+                    }
+                </InputSelect>
+            </label>
+            <p class="helper-text">Only an explicitly Safe state accepts a simulated movement request. Vehicle present, obstruction, sensor fault, and unknown are rejected.</p>
+            <button class="btn btn-outline-primary" @onclick="RequestMovement">Request simulated movement</button>
+            <div class="safety-warning">No tyre-spike mechanism or physical actuator is implemented. Emergency egress is independent of payment and this application.</div>
+        </article>
+    </section>
+
+    <section class="panel" id="history">
+        <div class="panel-heading"><div><p class="eyebrow">LIVE APPLICATION DATA</p><h2>Transaction history</h2></div></div>
+        @if (_dashboard.Transactions.Count == 0)
+        {
+            <p>No transactions in this demo session yet.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead><tr><th>Reference</th><th>Created</th><th>Type</th><th>Pump</th><th>Vehicle</th><th>Payment</th><th>Final litres</th><th>Final amount</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var transaction in _dashboard.Transactions)
+                        {
+                            <tr>
+                                <td>@transaction.Reference</td>
+                                <td>@transaction.CreatedAtUtc.ToLocalTime().ToString("g")</td>
+                                <td>@transaction.Type</td>
+                                <td>@transaction.PumpNumber</td>
+                                <td>@(transaction.VehicleRegistration ?? "—")</td>
+                                <td><span class="payment-state @transaction.PaymentStatus.ToString().ToLowerInvariant()">@transaction.PaymentStatus</span></td>
+                                <td>@(transaction.FinalLitres?.ToString("0.000") ?? "—")</td>
+                                <td>@(transaction.FinalAmount?.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("en-ZA")) ?? "—")</td>
+                                <td><button class="btn btn-sm btn-outline-primary" @onclick="() => SelectTransaction(transaction.Id)">Select</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="panel-grid">
+        <article class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">SIMULATOR STATUS</p><h2>Hardware and POS</h2></div></div>
+            <p class="helper-text">POS health: @_dashboard.Pos.Provider · @_dashboard.Pos.Message</p>
+            <div class="device-list">
+                @foreach (var device in _dashboard.Hardware)
+                {
+                    <div><span>@device.Type</span><strong class="device-state @device.Status.ToString().ToLowerInvariant()">@device.Status</strong><small>@device.AdapterName</small></div>
+                }
+            </div>
+        </article>
+        <article class="panel" id="exit-events">
+            <div class="panel-heading"><div><p class="eyebrow">EXIT WORKFLOW</p><h2>Recent scanner events</h2></div></div>
+            @if (_dashboard.ExitEvents.Count == 0)
+            {
+                <p>No exit scans recorded.</p>
+            }
+            else
+            {
+                <ul class="activity-list">
+                    @foreach (var item in _dashboard.ExitEvents)
+                    {
+                        <li><span class="activity-dot @(item.Completed ? "ok" : "blocked")"></span><div><strong>@item.Status</strong><p>@item.Message</p><small>@item.OccurredAtUtc.ToLocalTime().ToString("g")</small></div></li>
+                    }
+                </ul>
+            }
+        </article>
+    </section>
+
+    <section class="panel" id="audit-history">
+        <div class="panel-heading"><div><p class="eyebrow">AUDIT HISTORY</p><h2>Recent simulator activity</h2></div></div>
+        @if (_dashboard.RecentActivity.Count == 0)
+        {
+            <p>No audit events recorded.</p>
+        }
+        else
+        {
+            <ul class="activity-list">
+                @foreach (var item in _dashboard.RecentActivity)
+                {
+                    <li><span class="activity-dot"></span><div><strong>@item.Action</strong><p>@item.Summary</p><small>@item.Actor · @item.OccurredAtUtc.ToLocalTime().ToString("g")</small></div></li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+@code {
+    private readonly LoginModel _login = new();
+    private readonly TransactionModel _transaction = new();
+    private PaymentModel _payment = new();
+    private SimulatorDemoUser? _user;
+    private SimulatorDashboardSnapshot? _dashboard;
+    private AuthorizationDto? _authorization;
+    private Guid _selectedTransactionId;
+    private Guid _exitId = FuelGuardSimulatorDemoService.DemoExitOneId;
+    private SimulatorSafetyState _safetyState = SimulatorSafetyState.Safe;
+    private int _expiryMinutes = 10;
+    private string _scanToken = string.Empty;
+    private string? _loginMessage;
+    private string? _message;
+
+    private FuelTransactionDto? SelectedTransaction =>
+        _dashboard?.Transactions.FirstOrDefault(x => x.Id == _selectedTransactionId);
+
+    private void SignIn()
+    {
+        _user = Simulator.Authenticate(_login.Email, _login.Password);
+        if (_user is null)
+        {
+            _loginMessage = "The demo email or password was not recognized.";
+            return;
+        }
+
+        _loginMessage = null;
+        RefreshDashboard();
+    }
+
+    private void SignOut()
+    {
+        _user = null;
+        _dashboard = null;
+        _authorization = null;
+        _selectedTransactionId = Guid.Empty;
+        _message = null;
+    }
+
+    private void CreateTransaction()
+    {
+        try
+        {
+            var request = new CreateFuelTransactionRequest
+            {
+                StationId = FuelGuardSimulatorDemoService.DemoStationId,
+                PumpId = _transaction.PumpId,
+                FuelType = _transaction.FuelType,
+                Type = _transaction.Type,
+                RequestedAmount = _transaction.Type == FuelTransactionType.FixedAmount ? _transaction.RequestedAmount : null,
+                RequestedLitres = _transaction.Type == FuelTransactionType.FixedLitres ? _transaction.RequestedLitres : null,
+                VehicleRegistration = _transaction.VehicleRegistration
+            };
+            var created = Simulator.CreateTransaction(_user!, request);
+            _selectedTransactionId = created.Id;
+            _authorization = null;
+            _payment = new PaymentModel
+            {
+                FinalAmount = created.RequestedAmount ?? 100m,
+                FinalLitres = created.RequestedLitres ?? 10m
+            };
+            _message = $"Created pending simulator transaction {created.Reference}.";
+            RefreshDashboard();
+        }
+        catch (ArgumentException exception)
+        {
+            _message = exception.Message;
+        }
+    }
+
+    private void SubmitPayment()
+    {
+        if (SelectedTransaction is null)
+            return;
+        try
+        {
+            var payment = Simulator.SubmitPayment(_user!, SelectedTransaction.Id, _payment.Outcome, _payment.FinalAmount, _payment.FinalLitres);
+            _authorization = null;
+            _message = $"SIMULATION ONLY: POS simulator returned {payment.Status}. No real payment was made.";
+            RefreshDashboard();
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            _message = exception.Message;
+        }
+    }
+
+    private void GenerateQr()
+    {
+        if (SelectedTransaction is null)
+            return;
+        try
+        {
+            _authorization = Simulator.GenerateExitQr(_user!, SelectedTransaction.Id, _exitId, _expiryMinutes);
+            _scanToken = _authorization.Token;
+            _message = "SIMULATION ONLY: exit QR generated after confirmed payment.";
+            RefreshDashboard();
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            _message = exception.Message;
+        }
+    }
+
+    private void ScanQr()
+    {
+        try
+        {
+            var result = Simulator.ScanExit(_user!, new ExitScanRequest(
+                FuelGuardSimulatorDemoService.DemoStationId,
+                _exitId,
+                _scanToken,
+                null,
+                "SIM-QR-SCANNER"));
+            _message = result.Message;
+            RefreshDashboard();
+        }
+        catch (InvalidOperationException exception)
+        {
+            _message = exception.Message;
+        }
+    }
+
+    private void RevokeQr()
+    {
+        if (_authorization is null)
+            return;
+        try
+        {
+            Simulator.RevokeAuthorization(_user!, _authorization.Id);
+            _message = "SIMULATION ONLY: exit authorization revoked.";
+            RefreshDashboard();
+        }
+        catch (InvalidOperationException exception)
+        {
+            _message = exception.Message;
+        }
+    }
+
+    private void ChangeSafetyState(SimulatorSafetyState state)
+    {
+        _safetyState = state;
+        Simulator.SetSafetyState(_user!, state);
+        RefreshDashboard();
+    }
+
+    private void RequestMovement()
+    {
+        var result = Simulator.RequestMovement(_user!);
+        _message = result.Message;
+        RefreshDashboard();
+    }
+
+    private void ToggleScanner()
+    {
+        var online = _dashboard!.Hardware.First(x => x.Code == "SIM-QR-SCANNER").Status != DeviceStatus.Online;
+        Simulator.SetScannerOnline(_user!, online);
+        _message = $"SIMULATION ONLY: QR scanner is now {(online ? "online" : "offline")}.";
+        RefreshDashboard();
+    }
+
+    private void SelectTransaction(Guid transactionId)
+    {
+        _selectedTransactionId = transactionId;
+        _authorization = null;
+        var transaction = SelectedTransaction!;
+        _payment = new PaymentModel
+        {
+            FinalAmount = transaction.FinalAmount ?? transaction.RequestedAmount ?? 100m,
+            FinalLitres = transaction.FinalLitres ?? transaction.RequestedLitres ?? 10m
+        };
+        _message = $"Selected {transaction.Reference}.";
+    }
+
+    private void RefreshDashboard()
+    {
+        if (_user is null)
+            return;
+        _dashboard = Simulator.GetDashboard(_user);
+        _safetyState = _dashboard.SafetyState;
+        if (_selectedTransactionId != Guid.Empty && !_dashboard.Transactions.Any(x => x.Id == _selectedTransactionId))
+            _selectedTransactionId = Guid.Empty;
+    }
+
+    private sealed class LoginModel
+    {
+        [Required, EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [Required]
+        public string Password { get; set; } = string.Empty;
+    }
+
+    private sealed class TransactionModel
+    {
+        public Guid PumpId { get; set; } = FuelGuardSimulatorDemoService.DemoPumpOneId;
+        public string FuelType { get; set; } = "Unleaded 95";
+        public FuelTransactionType Type { get; set; } = FuelTransactionType.FixedAmount;
+        public decimal? RequestedAmount { get; set; } = 100m;
+        public decimal? RequestedLitres { get; set; }
+        public string? VehicleRegistration { get; set; }
+    }
+
+    private sealed class PaymentModel
+    {
+        public PaymentStatus Outcome { get; set; } = PaymentStatus.Paid;
+        [Range(typeof(decimal), "0.01", "1000000")]
+        public decimal FinalAmount { get; set; } = 100m;
+        [Range(typeof(decimal), "0.001", "10000")]
+        public decimal FinalLitres { get; set; } = 10m;
+    }
+}

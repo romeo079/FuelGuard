@@ -10,20 +10,29 @@ public sealed class SimulatedPosIntegrationService : ISimulatedPOSIntegrationSer
     private readonly ConcurrentDictionary<string, PosPaymentConfirmation> _confirmations = new(StringComparer.Ordinal);
 
     public Task<PosPaymentConfirmation> SimulatePaymentAsync(string transactionReference, bool succeed, decimal finalAmount, decimal finalLitres, CancellationToken cancellationToken)
+        => SimulatePaymentAsync(transactionReference, succeed ? PaymentStatus.Paid : PaymentStatus.Failed, finalAmount, finalLitres, cancellationToken);
+
+    public Task<PosPaymentConfirmation> SimulatePaymentAsync(string transactionReference, PaymentStatus outcome, decimal finalAmount, decimal finalLitres, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var status = succeed ? PaymentStatus.Paid : PaymentStatus.Failed;
+        if (outcome is not (PaymentStatus.Paid or PaymentStatus.Failed or PaymentStatus.Pending or PaymentStatus.Unknown))
+            throw new ArgumentOutOfRangeException(nameof(outcome), "The POS simulator supports Paid, Failed, Pending, and Unknown outcomes.");
         var confirmation = new PosPaymentConfirmation(
             "SIMULATION ONLY",
             transactionReference,
             Guid.NewGuid().ToString("N"),
-            status,
+            outcome,
             finalAmount,
             finalLitres,
             "ZAR",
             true);
         _confirmations[transactionReference] = confirmation;
         return Task.FromResult(confirmation);
+    }
+
+    public PosPaymentConfirmation SimulatePayment(string transactionReference, PaymentStatus outcome, decimal finalAmount, decimal finalLitres)
+    {
+        return SimulatePaymentAsync(transactionReference, outcome, finalAmount, finalLitres, CancellationToken.None).GetAwaiter().GetResult();
     }
 
     public Task<PosPaymentConfirmation?> VerifyPaymentAsync(string transactionReference, CancellationToken cancellationToken)

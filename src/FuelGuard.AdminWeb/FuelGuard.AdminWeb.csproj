@@ -2,10 +2,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FuelGuard.Contracts\FuelGuard.Contracts.csproj" />
+    <ProjectReference Include="..\FuelGuard.Hardware.Simulator\FuelGuard.Hardware.Simulator.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>

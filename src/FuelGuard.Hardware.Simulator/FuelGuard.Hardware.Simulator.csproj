@@ -1,13 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="QRCoder" />
     <ProjectReference Include="..\FuelGuard.Hardware.Abstractions\FuelGuard.Hardware.Abstractions.csproj" />
     <ProjectReference Include="..\FuelGuard.Contracts\FuelGuard.Contracts.csproj" />
     <ProjectReference Include="..\FuelGuard.Application\FuelGuard.Application.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

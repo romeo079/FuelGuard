@@ -36,7 +36,11 @@ public sealed record FuelTransactionDto(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? CompletedAtUtc);
 
-public sealed record SimulatePaymentRequest([Required] bool Succeed, [Range(typeof(decimal), "0.01", "1000000")] decimal FinalAmount, [Range(typeof(decimal), "0.001", "10000")] decimal FinalLitres);
+public sealed record SimulatePaymentRequest(
+    [Required] bool Succeed,
+    [Range(typeof(decimal), "0.01", "1000000")] decimal FinalAmount,
+    [Range(typeof(decimal), "0.001", "10000")] decimal FinalLitres,
+    PaymentStatus? Outcome = null);
 public sealed record PaymentDto(Guid Id, Guid FuelTransactionId, string Provider, string ProviderTransactionReference, PaymentStatus Status, decimal Amount, string CurrencyCode, bool IsSimulation, DateTimeOffset? VerifiedAtUtc);
 public sealed record IssueAuthorizationRequest([Required] Guid StationExitId, [Range(1, 120)] int ExpiryMinutes = 10);
 public sealed record AuthorizationDto(Guid Id, Guid FuelTransactionId, Guid StationId, Guid StationExitId, string Token, string QrCodePngBase64, string VehicleRegistration, DateTimeOffset ExpiresAtUtc, bool IsSimulation);

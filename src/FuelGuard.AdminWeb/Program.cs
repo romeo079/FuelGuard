@@ -1,10 +1,25 @@
 using FuelGuard.AdminWeb.Components;
+using FuelGuard.Hardware.Simulator;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddSingleton<SimulatedPosIntegrationService>();
+builder.Services.AddSingleton(_ => new SimulatedExitScannerService { IsOnline = true });
+builder.Services.AddSingleton<IFuelGuardSimulatorDemoService>(services =>
+{
+    var accounts = builder.Environment.IsDevelopment()
+        ? builder.Configuration.GetSection("Simulator:DemoAccounts").Get<List<SimulatorDemoAccount>>() ?? []
+        : [];
+    return new FuelGuardSimulatorDemoService(
+        accounts,
+        services.GetRequiredService<SimulatedPosIntegrationService>(),
+        services.GetRequiredService<SimulatedExitScannerService>(),
+        TimeProvider.System,
+        builder.Environment.IsDevelopment());
+});
 
 var app = builder.Build();
 

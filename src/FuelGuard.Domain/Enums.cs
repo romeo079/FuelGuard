@@ -2,7 +2,7 @@ namespace FuelGuard.Domain;
 
 public enum FuelTransactionType { FixedAmount, FixedLitres, FillToFull }
 public enum FuelTransactionStatus { Pending, Completed, Cancelled }
-public enum PaymentStatus { Pending, Paid, Failed, Cancelled, Refunded, Reversed }
+public enum PaymentStatus { Pending, Paid, Failed, Cancelled, Refunded, Reversed, Unknown }
 public enum ExitAuthorizationStatus { Active, Consumed, Expired, Revoked }
 public enum ExitScanStatus { Accepted, Invalid, Expired, AlreadyUsed, PaymentIneligible, VehicleMismatch, StationMismatch, ExitMismatch, Revoked, SensorFault, ControllerUnavailable }
 public enum DeviceStatus { Unknown, Online, Offline, Fault, Maintenance }

@@ -1,10 +1,12 @@
 using System.Text;
+using FuelGuard.Application;
 using FuelGuard.Api.Middleware;
 using FuelGuard.Api.Security;
 using FuelGuard.Hardware.Abstractions;
 using FuelGuard.Hardware.Simulator;
 using FuelGuard.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,37 +15,28 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
     {
         Title = "ROMVEX FuelGuard API",
         Version = "v1",
         Description = "Fuel and exit authorisation API for ROMVEX FuelGuard stations."
     });
 
-    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.OpenApiSecurityScheme
     {
         Name = "Authorization",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        In = Microsoft.OpenApi.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.SecuritySchemeType.Http,
         Scheme = "bearer",
         BearerFormat = "JWT",
         Description = "JWT bearer token issued by the FuelGuard auth endpoint."
     });
 
-    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
+    options.AddSecurityRequirement(document =>
+        new Microsoft.OpenApi.OpenApiSecurityRequirement
         {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
+            [new Microsoft.OpenApi.OpenApiSecuritySchemeReference("Bearer", document)] = []
+        });
 });
 
 var connectionString = builder.Configuration.GetConnectionString("FuelGuard") ??
@@ -110,13 +103,14 @@ if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Te
 }
 else
 {
-    builder.Services.AddScoped<IReceiptPrinterService, UnsupportedHardwareAdapter>();
-    builder.Services.AddScoped<IExitScannerService, UnsupportedHardwareAdapter>();
-    builder.Services.AddScoped<IANPRService, UnsupportedHardwareAdapter>();
-    builder.Services.AddScoped<IVehicleDetectionService, UnsupportedHardwareAdapter>();
-    builder.Services.AddScoped<IAccessControllerService, UnsupportedHardwareAdapter>();
-    builder.Services.AddScoped<IPOSIntegrationService, UnsupportedHardwareAdapter>();
-    builder.Services.AddScoped<IHardwareHealthService, UnsupportedHardwareAdapter>();
+    builder.Services.AddScoped<UnavailableHardwareService>();
+    builder.Services.AddScoped<IReceiptPrinterService>(sp => sp.GetRequiredService<UnavailableHardwareService>());
+    builder.Services.AddScoped<IExitScannerService>(sp => sp.GetRequiredService<UnavailableHardwareService>());
+    builder.Services.AddScoped<IANPRService>(sp => sp.GetRequiredService<UnavailableHardwareService>());
+    builder.Services.AddScoped<IVehicleDetectionService>(sp => sp.GetRequiredService<UnavailableHardwareService>());
+    builder.Services.AddScoped<IAccessControllerService>(sp => sp.GetRequiredService<UnavailableHardwareService>());
+    builder.Services.AddScoped<IPOSIntegrationService>(sp => sp.GetRequiredService<UnavailableHardwareService>());
+    builder.Services.AddScoped<IHardwareHealthService>(sp => sp.GetRequiredService<UnavailableHardwareService>());
 }
 
 var app = builder.Build();

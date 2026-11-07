@@ -35,7 +35,8 @@ public sealed class TransactionsController(IFuelGuardWorkflowService workflow) :
     [Authorize(Roles = RoleCatalog.SuperAdministrator + "," + RoleCatalog.StationManager + "," + RoleCatalog.Supervisor)]
     public async Task<ActionResult<PaymentDto>> SimulatePayment(Guid stationId, Guid transactionId, SimulatePaymentRequest request, CancellationToken cancellationToken)
     {
-        var result = await workflow.SimulatePaymentAsync(UserId(), stationId, transactionId, request.Succeed, request.FinalAmount, request.FinalLitres, cancellationToken);
+        var outcome = request.Outcome ?? (request.Succeed ? FuelGuard.Domain.PaymentStatus.Paid : FuelGuard.Domain.PaymentStatus.Failed);
+        var result = await workflow.SimulatePaymentAsync(UserId(), stationId, transactionId, outcome, request.FinalAmount, request.FinalLitres, cancellationToken);
         return Ok(result);
     }
 
